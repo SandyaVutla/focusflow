@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Clock, Edit2, Trash2, Timer } from "lucide-react";
-import { checkDailyGoals } from "../utils/storage";
+import { loadTasks, saveTasks, checkDailyGoals } from "../utils/storage";
 
 /* -------------------- DATE HELPERS -------------------- */
 const getToday = () => new Date().toISOString().split("T")[0];
@@ -37,26 +37,6 @@ const INITIAL_COMPLETED = [
   { id: 2, title: "Review pull requests", category: "Development", time: "25 min", priority: "medium", done: true, dueDate: T },
 ];
 
-/* -------------------- STORAGE -------------------- */
-const STORAGE_KEY = "focusflow_tasks_v2";
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { }
-  return null;
-}
-
-function saveState(tasks, completed) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks, completed }));
-    window.dispatchEvent(new Event("tasksUpdated"));
-    // Check if daily goals are now met → may increment streak
-    checkDailyGoals();
-  } catch { }
-}
-
 /* purge completed tasks older than 24 hours */
 function purgeExpiredCompleted(completedArr) {
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -64,11 +44,11 @@ function purgeExpiredCompleted(completedArr) {
 }
 
 function getInitialState() {
-  const saved = loadState();
-  if (saved?.tasks) {
-    return { tasks: saved.tasks, completed: purgeExpiredCompleted(saved.completed ?? []) };
-  }
-  return { tasks: INITIAL_TASKS, completed: INITIAL_COMPLETED };
+  const saved = loadTasks();
+  return {
+    tasks: saved.tasks || [],
+    completed: purgeExpiredCompleted(saved.completed || [])
+  };
 }
 
 /* -------------------- SORT HELPERS -------------------- */
@@ -138,7 +118,10 @@ const Tasks = () => {
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
 
-  const persist = useCallback((t, c) => saveState(t, c), []);
+  const persist = useCallback((t, c) => {
+    saveTasks({ tasks: t, completed: c });
+    checkDailyGoals();
+  }, []);
 
   /* ---- TOGGLE ---- */
   const handleToggle = useCallback((id) => {

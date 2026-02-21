@@ -5,8 +5,9 @@ import {
   ArrowRight, TrendingUp, Zap
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import apiClient from "../api/axios";
 import { MOCK_DATA } from "../utils/constants";
-import { loadTasks, loadHealth, loadMotivation, loadTimer, saveTimer } from "../utils/storage";
+import { loadTasks, loadHealth, loadMotivation, loadTimer, saveTimer, saveMotivation, saveHealth } from "../utils/storage";
 
 /* ─── helpers ─── */
 const TOTAL_TIME = 25 * 60;
@@ -28,6 +29,42 @@ function getDayName(offset = 0) {
 const Dashboard = () => {
   const navigate = useNavigate();
   const today = getTodayStr();
+
+  /* ── backend sync ── */
+  useEffect(() => {
+    const fetchBackendStats = async () => {
+      try {
+        const [streakRes, weeklyRes] = await Promise.all([
+          apiClient.get("/stats/streak"),
+          apiClient.get("/stats/weekly")
+        ]);
+
+        // 1. Sync Streak
+        const bStreak = streakRes.data.streak;
+        const localMot = loadMotivation();
+        if (bStreak > localMot.streak) {
+          saveMotivation({ ...localMot, streak: bStreak });
+        }
+
+        // 2. Sync Today's Stats from Weekly Data
+        const weekly = weeklyRes.data;
+        const bToday = weekly[weekly.length - 1];
+        if (bToday && bToday.date === today) {
+          const localHealth = loadHealth();
+          if (bToday.waterGlasses > localHealth.glasses) {
+            saveHealth({ ...localHealth, glasses: bToday.waterGlasses });
+          }
+          const localTimer = loadTimer();
+          if (bToday.focusMinutes > (localTimer.focusMinutesToday || 0)) {
+            saveTimer({ ...localTimer, focusMinutesToday: bToday.focusMinutes, focusDate: today });
+          }
+        }
+      } catch (err) {
+        console.error("Dashboard initial sync failed:", err.message);
+      }
+    };
+    fetchBackendStats();
+  }, [today]);
 
   /* ── live clock ── */
   const [now, setNow] = useState(new Date());
@@ -144,16 +181,37 @@ const Dashboard = () => {
   const focusGoalPct = Math.min(focusMinutesToday / 60, 1) * 100;
   const progressPct = Math.round((taskGoalPct + waterGoalPct + focusGoalPct) / 3);
 
-  /* ── weekly bars ── */
-  const weeklyData = [
-    { day: getDayName(6), pct: 72 },
-    { day: getDayName(5), pct: 88 },
-    { day: getDayName(4), pct: 55 },
-    { day: getDayName(3), pct: 91 },
-    { day: getDayName(2), pct: 63 },
-    { day: getDayName(1), pct: 78 },
-    { day: "Today", pct: progressPct, isToday: true },
-  ];
+  /* ── weekly bars (real data from backend) ── */
+  const [weeklyBars, setWeeklyBars] = useState([]);
+  useEffect(() => {
+    const fetchWeekly = async () => {
+      try {
+        const res = await apiClient.get("/stats/weekly");
+        const data = res.data; // List of DailyStats
+
+        // Map last 7 days from backend or 0 if missing
+        const bars = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(); date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split("T")[0];
+          const stat = data.find(s => s.date === dateStr);
+
+          // Calculate a percentage based on focus goal (60 min)
+          const focusPct = stat ? Math.min(Math.round((stat.focusMinutes / 60) * 100), 100) : 0;
+
+          bars.push({
+            day: i === 0 ? "Today" : getDayName(i),
+            pct: focusPct,
+            isToday: i === 0
+          });
+        }
+        setWeeklyBars(bars);
+      } catch (err) {
+        console.error("Weekly bars sync failed:", err.message);
+      }
+    };
+    fetchWeekly();
+  }, [focusMinutesToday]); // Refresh when focus minutes change
 
   const userName = localStorage.getItem("userName") || MOCK_DATA.user.name;
   const firstName = userName.split(" ")[0];
@@ -313,7 +371,7 @@ const Dashboard = () => {
             <span className="db-card-sub">Last 7 days</span>
           </div>
           <div className="db-bar-chart">
-            {weeklyData.map(({ day, pct, isToday }) => (
+            {weeklyBars.map(({ day, pct, isToday }) => (
               <div key={day} className="db-bar-col">
                 <div className="db-bar-track">
                   <div className={`db-bar-fill${isToday ? " db-bar-fill--today" : ""}`} style={{ height: `${pct}%` }} />
@@ -323,8 +381,8 @@ const Dashboard = () => {
             ))}
           </div>
           <div className="db-weekly-pills">
-            <span className="db-wpill">📈 Avg {Math.round(weeklyData.reduce((s, d) => s + d.pct, 0) / 7)}%</span>
-            <span className="db-wpill">🏆 Best: {weeklyData.reduce((best, d) => d.pct > best.pct ? d : best).day}</span>
+            <span className="db-wpill">📈 Avg {weeklyBars.length > 0 ? Math.round(weeklyBars.reduce((s, d) => s + d.pct, 0) / weeklyBars.length) : 0}%</span>
+            <span className="db-wpill">🏆 Best: {weeklyBars.length > 0 ? weeklyBars.reduce((best, d) => d.pct > best.pct ? d : best).day : "Today"}</span>
             <span className="db-wpill">🔥 {currentStreak} day streak</span>
           </div>
         </div>

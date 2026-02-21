@@ -5,6 +5,8 @@
    (and any other subscriber) can update in real-time.
    ========================================================== */
 
+import apiClient from "../api/axios";
+
 export const KEYS = {
     TASKS: "focusflow_tasks_v2",
     TIMER: "focusflow_timer",
@@ -17,6 +19,40 @@ function read(key) { try { return JSON.parse(localStorage.getItem(key) || "null"
 function write(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch { } }
 function broadcast(name) { window.dispatchEvent(new Event(name)); }
 
+/**
+ * Syncs the current day's progress to the backend.
+ * This runs in the background to ensure data persistence across devices.
+ */
+async function syncWithBackend() {
+    const today = new Date().toISOString().split("T")[0];
+
+    // 1. Calculate tasks
+    const taskData = loadTasks();
+    const allToday = [...(taskData.tasks || []), ...(taskData.completed || [])].filter(t => t.dueDate === today);
+    const tasksCompleted = allToday.filter(t => t.done).length;
+    const tasksTotal = allToday.length;
+
+    // 2. Focus minutes
+    const timer = loadTimer();
+    const focusMinutes = timer.focusDate === today ? (timer.focusMinutesToday || 0) : 0;
+
+    // 3. Water
+    const health = loadHealth();
+    const waterGlasses = health.glasses || 0;
+
+    try {
+        await apiClient.post("/stats/today", {
+            tasksCompleted,
+            tasksTotal,
+            focusMinutes,
+            waterGlasses
+        });
+        console.log("Backend sync successful");
+    } catch (err) {
+        console.error("Backend sync failed:", err.message);
+    }
+}
+
 /* ─── TASKS ─── */
 export function loadTasks() {
     const d = read(KEYS.TASKS);
@@ -25,6 +61,7 @@ export function loadTasks() {
 export function saveTasks(data) {
     write(KEYS.TASKS, data);
     broadcast("tasksUpdated");
+    syncWithBackend();
 }
 
 /* ─── TIMER ─── */
@@ -42,8 +79,19 @@ export function loadTimer() {
     };
 }
 export function saveTimer(data) {
-    write(KEYS.TIMER, data);
+    const today = new Date().toISOString().split("T")[0];
+    // Ensure we track focusDate if focusMinutes are incremented
+    const updated = { ...data };
+    if (updated.focusMinutesToday > 0 && !updated.focusDate) {
+        updated.focusDate = today;
+    }
+    write(KEYS.TIMER, updated);
     broadcast("timerUpdated");
+
+    // Only sync if minutes actually changed to avoid over-syncing every second
+    if (data.focusMinutesToday !== undefined) {
+        syncWithBackend();
+    }
 }
 
 /* ─── HEALTH ─── */
@@ -57,6 +105,7 @@ export function loadHealth() {
 export function saveHealth(data) {
     write(KEYS.HEALTH, { date: TODAY(), ...data });
     broadcast("healthUpdated");
+    syncWithBackend();
 }
 
 /* ─── MOTIVATION ─── */

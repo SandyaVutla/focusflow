@@ -33,7 +33,6 @@ const Signup = () => {
         setLoading(true);
         try {
             await apiClient.post("/auth/signup", {
-                username: formData.email, // backend expects username, using email as identifier
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
@@ -42,8 +41,10 @@ const Signup = () => {
             toast.success("Account created successfully! Please sign in.");
             navigate("/login");
         } catch (err) {
-            console.error(err.response?.data || err.message);
-            const errorMsg = err.response?.data || "Signup failed";
+            console.error("Signup error:", err.response?.data || err.message);
+            const errorMsg = typeof err.response?.data === 'string'
+                ? err.response.data
+                : (err.response?.data?.message || "Signup failed. Please check your connection.");
             setError(errorMsg);
             toast.error(errorMsg);
         } finally {
