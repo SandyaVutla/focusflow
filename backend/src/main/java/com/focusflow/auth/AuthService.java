@@ -20,27 +20,25 @@ public class AuthService {
     private JwtUtils jwtUtils;
 
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
-        String email = loginRequest.getEmail().toLowerCase().trim();
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, loginRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(email);
+        String jwt = jwtUtils.generateJwtToken(loginRequest.getEmail());
 
-        User user = userRepository.findByEmail(email).get();
+        User user = userRepository.findByEmail(loginRequest.getEmail()).get();
 
         return new JwtResponse(jwt, user.getId(), user.getName(), user.getEmail());
     }
 
     public String registerUser(SignupRequest signUpRequest) {
-        String email = signUpRequest.getEmail().toLowerCase().trim();
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             return "Error: Email is already in use!";
         }
 
         // Create user with name, email, and encoded password
         User user = new User(signUpRequest.getName(),
-                email,
+                signUpRequest.getEmail(),
                 encoder.encode(signUpRequest.getPassword()));
 
         userRepository.save(user);
