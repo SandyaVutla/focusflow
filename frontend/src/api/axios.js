@@ -30,7 +30,11 @@ apiClient.interceptors.response.use(
       );
     }
 
-    if (error.response?.status === 401 && !window.location.pathname.startsWith("/login")) {
+    if (
+      error.response?.status === 401 &&
+      localStorage.getItem("token") &&
+      !window.location.pathname.startsWith("/login")
+    ) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }

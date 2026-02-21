@@ -29,42 +29,50 @@ function getDayName(offset = 0) {
 const Dashboard = () => {
   const navigate = useNavigate();
   const today = getTodayStr();
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [summary, setSummary] = useState(null);
+  const [todayTasksList, setTodayTasksList] = useState([]);
 
   /* ── backend sync ── */
   useEffect(() => {
-    const fetchBackendStats = async () => {
+    if (!token) return;
+
+    const fetchDashboardData = async () => {
       try {
-        const [streakRes, weeklyRes] = await Promise.all([
-          apiClient.get("/api/stats/streak"),
-          apiClient.get("/api/stats/weekly")
+        const [summaryRes, tasksRes] = await Promise.all([
+          apiClient.get("/api/dashboard/summary"),
+          apiClient.get(`/api/tasks?date=${today}`)
         ]);
 
-        // 1. Sync Streak
-        const bStreak = streakRes.data.streak;
-        const localMot = loadMotivation();
-        if (bStreak > localMot.streak) {
-          saveMotivation({ ...localMot, streak: bStreak });
-        }
+        setSummary(summaryRes.data);
+        setTodayTasksList(tasksRes.data);
 
-        // 2. Sync Today's Stats from Weekly Data
-        const weekly = weeklyRes.data;
-        const bToday = weekly[weekly.length - 1];
-        if (bToday && bToday.date === today) {
-          const localHealth = loadHealth();
-          if (bToday.waterGlasses > localHealth.glasses) {
-            saveHealth({ ...localHealth, glasses: bToday.waterGlasses });
-          }
-          const localTimer = loadTimer();
-          if (bToday.focusMinutes > (localTimer.focusMinutesToday || 0)) {
-            saveTimer({ ...localTimer, focusMinutesToday: bToday.focusMinutes, focusDate: today });
-          }
-        }
+        // Sync storage with backend data to keep other pages (like Stats/Timer) consistent
+        const s = summaryRes.data;
+        const localMot = loadMotivation();
+        saveMotivation({ ...localMot, streak: s.currentStreak, best: s.bestStreak });
+
+        const localHealth = loadHealth();
+        saveHealth({ ...localHealth, glasses: s.waterIntakeToday });
+
+        const localTimer = loadTimer();
+        saveTimer({ ...localTimer, focusMinutesToday: s.focusMinutesToday, focusDate: today });
+
       } catch (err) {
-        console.error("Dashboard initial sync failed:", err.message);
+        console.error("Dashboard data fetch failed:", err.message);
       }
     };
-    fetchBackendStats();
-  }, [today]);
+    fetchDashboardData();
+
+    // Diagnostic Interval: Check if token "disappears"
+    const diag = setInterval(() => {
+      const t = localStorage.getItem("token");
+      console.log(`[AUTH-DIAG] ${new Date().toLocaleTimeString()} - Token present: ${!!t}`);
+      if (!t) console.error("[AUTH-DIAG] TOKEN LOST FROM LOCAL STORAGE!");
+    }, 1000);
+
+    return () => clearInterval(diag);
+  }, [today, token]);
 
   /* ── live clock ── */
   const [now, setNow] = useState(new Date());
@@ -81,47 +89,48 @@ const Dashboard = () => {
     setTimeout(() => { setQuoteIdx(i => (i + 1) % QUOTES.length); setFadeQ(true); }, 300);
   };
 
-  /* ── TASKS — live via "tasksUpdated" event ── */
-  const [taskData, setTaskData] = useState(() => loadTasks());
+  /* ── TASKS — local state + backend fallback ── */
+  const [localTaskData, setLocalTaskData] = useState(() => loadTasks());
   useEffect(() => {
-    const refresh = () => setTaskData(loadTasks());
+    const refresh = () => setLocalTaskData(loadTasks());
     window.addEventListener("tasksUpdated", refresh);
     window.addEventListener("focus", refresh);
     return () => { window.removeEventListener("tasksUpdated", refresh); window.removeEventListener("focus", refresh); };
   }, []);
 
-  const todayTasks = (taskData.tasks || []).filter(t => t.dueDate === today);
-  const completedToday = (taskData.completed || []).filter(t => t.dueDate === today);
-  const totalToday = todayTasks.length + completedToday.length;
-  const pendingCount = todayTasks.length;
-  const completedCount = completedToday.length;
+  // Use summary from backend as primary source of truth, fallback to local
+  const completedCount = summary ? summary.tasksCompletedToday : (localTaskData.completed || []).filter(t => t.dueDate === today).length;
+  const totalToday = summary ? summary.totalTasksToday : ((localTaskData.tasks || []).filter(t => t.dueDate === today).length + (localTaskData.completed || []).filter(t => t.dueDate === today).length);
+  const pendingCount = summary ? summary.pendingTasks : (localTaskData.tasks || []).filter(t => t.dueDate === today).length;
 
   const PRIO = { high: 0, medium: 1, low: 2 };
-  const topPending = [...todayTasks].sort((a, b) => (PRIO[a.priority] ?? 3) - (PRIO[b.priority] ?? 3)).slice(0, 3);
+  // Use real tasks from backend list if available
+  const displayTasks = todayTasksList.length > 0 ? todayTasksList.filter(t => t.status === "ACTIVE") : (localTaskData.tasks || []).filter(t => t.dueDate === today);
+  const topPending = [...displayTasks].sort((a, b) => (PRIO[a.priority] ?? 3) - (PRIO[b.priority] ?? 3)).slice(0, 3);
 
-  /* ── HEALTH — live via "healthUpdated" event ── */
-  const [healthData, setHealthData] = useState(() => loadHealth());
+  /* ── HEALTH — local state + backend fallback ── */
+  const [localHealthData, setLocalHealthData] = useState(() => loadHealth());
   useEffect(() => {
-    const refresh = () => setHealthData(loadHealth());
+    const refresh = () => setLocalHealthData(loadHealth());
     window.addEventListener("healthUpdated", refresh);
     window.addEventListener("focus", refresh);
     return () => { window.removeEventListener("healthUpdated", refresh); window.removeEventListener("focus", refresh); };
   }, []);
 
-  const glasses = healthData.glasses ?? 0;
+  const glasses = summary ? summary.waterIntakeToday : (localHealthData.glasses ?? 0);
   const waterGoal = 8;
 
-  /* ── MOTIVATION — live via "motivationUpdated" event ── */
-  const [motData, setMotData] = useState(() => loadMotivation());
+  /* ── MOTIVATION — local state + backend fallback ── */
+  const [localMotData, setLocalMotData] = useState(() => loadMotivation());
   useEffect(() => {
-    const refresh = () => setMotData(loadMotivation());
+    const refresh = () => setLocalMotData(loadMotivation());
     window.addEventListener("motivationUpdated", refresh);
     window.addEventListener("focus", refresh);
     return () => { window.removeEventListener("motivationUpdated", refresh); window.removeEventListener("focus", refresh); };
   }, []);
 
-  const currentStreak = motData.streak ?? 0;
-  const bestStreak = motData.best ?? 0;
+  const currentStreak = summary ? summary.currentStreak : (localMotData.streak ?? 0);
+  const bestStreak = summary ? summary.bestStreak : (localMotData.best ?? 0);
 
   /* ── FOCUS TIMER — live via "timerUpdated" event ── */
   const [isRunning, setIsRunning] = useState(false);
@@ -134,8 +143,9 @@ const Dashboard = () => {
     setIsRunning(t.isRunning ?? false);
     // focus minutes today (clear if stale date)
     const fDate = t.focusDate ?? null;
-    setFocusMinutesToday(fDate === today ? (t.focusMinutesToday ?? 0) : 0);
-  }, []);
+    const initialFocus = fDate === today ? (t.focusMinutesToday ?? 0) : 0;
+    setFocusMinutesToday(summary ? summary.focusMinutesToday : initialFocus);
+  }, [summary]);
 
   /* sync from timerUpdated (Focus page changed the timer) */
   useEffect(() => {
