@@ -27,10 +27,10 @@ const Analytics = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const endpoint = view === "weekly" ? "/stats/weekly" : "/stats/monthly";
+            const endpoint = view === "weekly" ? "/api/stats/weekly" : "/api/stats/monthly";
             const [statsRes, streakRes] = await Promise.all([
                 apiClient.get(endpoint),
-                apiClient.get("/stats/streak")
+                apiClient.get("/api/stats/streak")
             ]);
             setStats(statsRes.data);
             setStreak(streakRes.data.streak);

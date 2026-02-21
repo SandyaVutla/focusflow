@@ -35,8 +35,8 @@ const Dashboard = () => {
     const fetchBackendStats = async () => {
       try {
         const [streakRes, weeklyRes] = await Promise.all([
-          apiClient.get("/stats/streak"),
-          apiClient.get("/stats/weekly")
+          apiClient.get("/api/stats/streak"),
+          apiClient.get("/api/stats/weekly")
         ]);
 
         // 1. Sync Streak
@@ -186,7 +186,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchWeekly = async () => {
       try {
-        const res = await apiClient.get("/stats/weekly");
+        const res = await apiClient.get("/api/stats/weekly");
         const data = res.data; // List of DailyStats
 
         // Map last 7 days from backend or 0 if missing
