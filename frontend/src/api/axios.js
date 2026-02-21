@@ -2,7 +2,7 @@ import axios from "axios";
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "https://focusflow-36nr.onrender.com",
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -30,7 +30,7 @@ apiClient.interceptors.response.use(
       );
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !window.location.pathname.startsWith("/login")) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }
