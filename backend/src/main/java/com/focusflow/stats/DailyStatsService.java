@@ -19,13 +19,13 @@ public class DailyStatsService {
                 .orElse(new DailyStats(userId, today));
 
         if (tasksCompleted != null)
-            stats.setTasksCompleted(stats.getTasksCompleted() + tasksCompleted);
+            stats.setTasksCompleted(tasksCompleted);
         if (tasksTotal != null)
-            stats.setTasksTotal(stats.getTasksTotal() + tasksTotal);
+            stats.setTasksTotal(tasksTotal);
         if (focusMinutes != null)
-            stats.setFocusMinutes(stats.getFocusMinutes() + focusMinutes);
+            stats.setFocusMinutes(focusMinutes);
         if (waterGlasses != null)
-            stats.setWaterGlasses(stats.getWaterGlasses() + waterGlasses);
+            stats.setWaterGlasses(waterGlasses);
 
         // Check if goals are met: 4 tasks, 60 mins focus, 5 glasses water
         boolean met = stats.getTasksCompleted() >= 4 &&
