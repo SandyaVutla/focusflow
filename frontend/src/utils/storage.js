@@ -34,38 +34,43 @@ function write(key, val) {
 }
 function broadcast(name) { window.dispatchEvent(new Event(name)); }
 
+let syncTimeout = null;
 /**
  * Syncs the current day's progress to the backend.
- * This runs in the background to ensure data persistence across devices.
+ * Debounced to prevent excessive API calls during rapid state changes.
  */
-async function syncWithBackend() {
-    const today = new Date().toISOString().split("T")[0];
+export async function syncWithBackend() {
+    if (syncTimeout) clearTimeout(syncTimeout);
 
-    // 1. Calculate tasks
-    const taskData = loadTasks();
-    const allToday = [...(taskData.tasks || []), ...(taskData.completed || [])].filter(t => t.dueDate === today);
-    const tasksCompleted = allToday.filter(t => t.done).length;
-    const tasksTotal = allToday.length;
+    syncTimeout = setTimeout(async () => {
+        const today = new Date().toISOString().split("T")[0];
 
-    // 2. Focus minutes
-    const timer = loadTimer();
-    const focusMinutes = timer.focusDate === today ? (timer.focusMinutesToday || 0) : 0;
+        // 1. Calculate tasks
+        const taskData = loadTasks();
+        const allToday = [...(taskData.tasks || []), ...(taskData.completed || [])].filter(t => t.dueDate === today);
+        const tasksCompleted = allToday.filter(t => t.done).length;
+        const tasksTotal = allToday.length;
 
-    // 3. Water
-    const health = loadHealth();
-    const waterGlasses = health.glasses || 0;
+        // 2. Focus minutes
+        const timer = loadTimer();
+        const focusMinutes = timer.focusDate === today ? (timer.focusMinutesToday || 0) : 0;
 
-    try {
-        await apiClient.post("/stats/today", {
-            tasksCompleted,
-            tasksTotal,
-            focusMinutes,
-            waterGlasses
-        });
-        console.log("Backend sync successful");
-    } catch (err) {
-        console.error("Backend sync failed:", err.message);
-    }
+        // 3. Water
+        const health = loadHealth();
+        const waterGlasses = health.glasses || 0;
+
+        try {
+            await apiClient.post("/stats/today", {
+                tasksCompleted,
+                tasksTotal,
+                focusMinutes,
+                waterGlasses
+            });
+            console.log("Backend sync successful");
+        } catch (err) {
+            console.error("Backend sync failed:", err.message);
+        }
+    }, 1000); // 1 second debounce
 }
 
 /* ─── TASKS ─── */

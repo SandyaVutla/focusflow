@@ -286,7 +286,7 @@ const Dashboard = () => {
       }
     };
     fetchWeeklyUpdate();
-  }, [focusMinutesToday, token]);
+  }, [token, today]);
 
   const userName = localStorage.getItem("userName") || MOCK_DATA.user.name;
   const firstName = userName.split(" ")[0];
