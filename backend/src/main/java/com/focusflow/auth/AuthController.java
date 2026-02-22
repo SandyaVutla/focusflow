@@ -20,11 +20,9 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequest signupRequest) {
-        String result = authService.registerUser(signupRequest);
-        if (result.startsWith("Error")) {
-            return ResponseEntity.badRequest().body(result);
-        }
-        return ResponseEntity.ok(result);
+    public ResponseEntity<?> registerUser(@RequestBody SignupRequest signUpRequest) {
+        System.out.println(">>> SIGNUP HIT");
+        System.out.println(signUpRequest.getEmail());
+        return ResponseEntity.ok("SIGNUP CONTROLLER WORKS");
     }
 }
