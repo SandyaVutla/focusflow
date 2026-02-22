@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -16,10 +16,10 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// 🔒 HARDENED 401 HANDLER (CRITICAL FIX)
+// Hardened 401 handler
 apiClient.interceptors.response.use(
-  res => res,
-  error => {
+  (res) => res,
+  (error) => {
     const token = localStorage.getItem("token");
 
     if (error.response?.status === 401 && token) {
