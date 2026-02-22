@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { User, Mail, Lock, Loader2 } from "lucide-react";
 import apiClient from "../api/axios";
+import { API_BASE_URL } from "../config";
 import { toast } from "react-hot-toast";
 
 const Signup = () => {
@@ -32,7 +33,7 @@ const Signup = () => {
 
         setLoading(true);
         try {
-            await apiClient.post("/auth/signup", {
+            await apiClient.post("/api/auth/signup", {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
