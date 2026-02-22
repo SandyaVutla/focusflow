@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, Loader2, User } from "lucide-react";
 import apiClient from "../api/axios";
+import { API_BASE_URL } from "../config";
 import { toast } from "react-hot-toast";
 
 const Login = () => {
@@ -24,7 +25,7 @@ const Login = () => {
         setError("");
 
         try {
-            const response = await apiClient.post("/auth/login", formData);
+            const response = await apiClient.post("/api/auth/login", formData);
             const { token, name, userId } = response.data;
 
             console.log("[AUTH-DIAG] Login successful. Persisting tokens...");
@@ -43,7 +44,9 @@ const Login = () => {
             }
         } catch (err) {
             console.error(err.response?.data || err.message);
-            const errorMsg = err.response?.data?.message || err.response?.data || "Login failed. Check your credentials.";
+            const errorMsg = typeof err.response?.data === 'string'
+                ? err.response.data
+                : (err.response?.data?.message || "Login failed. Check your credentials.");
             setError(errorMsg);
             toast.error(errorMsg);
         } finally {
