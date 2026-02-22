@@ -32,12 +32,13 @@ const Signup = () => {
 
         setLoading(true);
         try {
-            await apiClient.post("/api/auth/signup", {
+            await apiClient.post("/auth/signup", {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
             });
             // Success: Redirect to login
+            console.log("[AUTH-DIAG] Signup successful. Redirecting to /login...");
             toast.success("Account created successfully! Please sign in.");
             navigate("/login");
         } catch (err) {

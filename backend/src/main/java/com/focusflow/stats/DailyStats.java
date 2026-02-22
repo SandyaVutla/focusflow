@@ -32,4 +32,76 @@ public class DailyStats {
         this.goalsMet = false;
         this.createdAt = new Date();
     }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public String getDate() {
+        return date;
+    }
+
+    public void setDate(String date) {
+        this.date = date;
+    }
+
+    public int getTasksCompleted() {
+        return tasksCompleted;
+    }
+
+    public void setTasksCompleted(int tasksCompleted) {
+        this.tasksCompleted = tasksCompleted;
+    }
+
+    public int getTasksTotal() {
+        return tasksTotal;
+    }
+
+    public void setTasksTotal(int tasksTotal) {
+        this.tasksTotal = tasksTotal;
+    }
+
+    public int getFocusMinutes() {
+        return focusMinutes;
+    }
+
+    public void setFocusMinutes(int focusMinutes) {
+        this.focusMinutes = focusMinutes;
+    }
+
+    public int getWaterGlasses() {
+        return waterGlasses;
+    }
+
+    public void setWaterGlasses(int waterGlasses) {
+        this.waterGlasses = waterGlasses;
+    }
+
+    public boolean isGoalsMet() {
+        return goalsMet;
+    }
+
+    public void setGoalsMet(boolean goalsMet) {
+        this.goalsMet = goalsMet;
+    }
+
+    public Date getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Date createdAt) {
+        this.createdAt = createdAt;
+    }
 }

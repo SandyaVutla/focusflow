@@ -29,27 +29,41 @@ function getDayName(offset = 0) {
 const Dashboard = () => {
   const navigate = useNavigate();
   const today = getTodayStr();
-  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  /* ── backend sync ── */
+  console.log("[AUTH-DIAG] Dashboard: Component Mounting...");
+
+  /* ── 1. Load Token ── */
   useEffect(() => {
-    if (!token) return;
+    const t = localStorage.getItem("token");
+    console.log(`[AUTH-DIAG] Dashboard: Loading token: ${t ? "Present" : "Missing"}`);
+    setToken(t);
+  }, []);
 
-    const fetchBackendStats = async () => {
+  /* ── 2. Data Hydration (Explicitly waits for token) ── */
+  useEffect(() => {
+    if (!token) {
+      console.warn("[DASHBOARD] No token yet, skipping fetch");
+      return;
+    }
+
+    const fetchInitialData = async () => {
+      console.log("[AUTH-DIAG] Dashboard: Fetching stats and weekly data...");
       try {
         const [streakRes, weeklyRes] = await Promise.all([
-          apiClient.get("/api/stats/streak"),
-          apiClient.get("/api/stats/weekly")
+          apiClient.get("/stats/streak"),
+          apiClient.get("/stats/weekly")
         ]);
 
-        // 1. Sync Streak
+        // Sync Streak
         const bStreak = streakRes.data.streak;
         const localMot = loadMotivation();
         if (bStreak > localMot.streak) {
           saveMotivation({ ...localMot, streak: bStreak });
         }
 
-        // 2. Sync Today's Stats from Weekly Data
+        // Sync Today's Stats
         const weekly = weeklyRes.data;
         const bToday = weekly[weekly.length - 1];
         if (bToday && bToday.date === today) {
@@ -62,21 +76,30 @@ const Dashboard = () => {
             saveTimer({ ...localTimer, focusMinutesToday: bToday.focusMinutes, focusDate: today });
           }
         }
+
+        // Map weekly bars
+        const bars = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(); date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split("T")[0];
+          const stat = weekly.find(s => s.date === dateStr);
+          const focusPct = stat ? Math.min(Math.round((stat.focusMinutes / 60) * 100), 100) : 0;
+          bars.push({
+            day: i === 0 ? "Today" : getDayName(i),
+            pct: focusPct,
+            isToday: i === 0
+          });
+        }
+        setWeeklyBars(bars);
       } catch (err) {
-        console.error("Dashboard initial sync failed:", err.message);
+        console.error("[AUTH-DIAG] Dashboard hydration failed:", err.message);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchBackendStats();
 
-    // Diagnostic Interval: Check if token "disappears"
-    const diag = setInterval(() => {
-      const t = localStorage.getItem("token");
-      console.log(`[AUTH-DIAG] ${new Date().toLocaleTimeString()} - Token present: ${!!t}`);
-      if (!t) console.error("[AUTH-DIAG] TOKEN LOST FROM LOCAL STORAGE!");
-    }, 1000);
-
-    return () => clearInterval(diag);
-  }, [today, token]);
+    fetchInitialData();
+  }, [token, today]);
 
   /* ── live clock ── */
   const [now, setNow] = useState(new Date());
@@ -195,22 +218,19 @@ const Dashboard = () => {
 
   /* ── weekly bars (real data from backend) ── */
   const [weeklyBars, setWeeklyBars] = useState([]);
+  /* ── 3. Weekly Activity Refresh (on focus minutes update) ── */
   useEffect(() => {
-    const fetchWeekly = async () => {
+    if (!token) return;
+    const fetchWeeklyUpdate = async () => {
       try {
-        const res = await apiClient.get("/api/stats/weekly");
-        const data = res.data; // List of DailyStats
-
-        // Map last 7 days from backend or 0 if missing
+        const res = await apiClient.get("/stats/weekly");
+        const data = res.data;
         const bars = [];
         for (let i = 6; i >= 0; i--) {
           const date = new Date(); date.setDate(date.getDate() - i);
           const dateStr = date.toISOString().split("T")[0];
           const stat = data.find(s => s.date === dateStr);
-
-          // Calculate a percentage based on focus goal (60 min)
           const focusPct = stat ? Math.min(Math.round((stat.focusMinutes / 60) * 100), 100) : 0;
-
           bars.push({
             day: i === 0 ? "Today" : getDayName(i),
             pct: focusPct,
@@ -219,14 +239,25 @@ const Dashboard = () => {
         }
         setWeeklyBars(bars);
       } catch (err) {
-        console.error("Weekly bars sync failed:", err.message);
+        console.error("[AUTH-DIAG] Weekly bars update failed:", err.message);
       }
     };
-    fetchWeekly();
-  }, [focusMinutesToday]); // Refresh when focus minutes change
+    fetchWeeklyUpdate();
+  }, [focusMinutesToday, token]);
 
   const userName = localStorage.getItem("userName") || MOCK_DATA.user.name;
   const firstName = userName.split(" ")[0];
+
+  if (loading) {
+    return (
+      <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '60vh' }}>
+        <div className="text-center">
+          <div className="spinner-border text-teal mb-3" role="status"></div>
+          <p className="text-muted fw-medium small">Loading your focus dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in db-page">

@@ -24,4 +24,44 @@ public class UserStreak {
         this.bestStreak = 0;
         this.lastSuccessfulDate = LocalDate.now().minusDays(2); // Initial state: no recent success
     }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
+    public int getCurrentStreak() {
+        return currentStreak;
+    }
+
+    public void setCurrentStreak(int currentStreak) {
+        this.currentStreak = currentStreak;
+    }
+
+    public int getBestStreak() {
+        return bestStreak;
+    }
+
+    public void setBestStreak(int bestStreak) {
+        this.bestStreak = bestStreak;
+    }
+
+    public LocalDate getLastSuccessfulDate() {
+        return lastSuccessfulDate;
+    }
+
+    public void setLastSuccessfulDate(LocalDate lastSuccessfulDate) {
+        this.lastSuccessfulDate = lastSuccessfulDate;
+    }
 }

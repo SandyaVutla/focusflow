@@ -41,7 +41,7 @@ async function syncWithBackend() {
     const waterGlasses = health.glasses || 0;
 
     try {
-        await apiClient.post("/api/stats/today", {
+        await apiClient.post("/stats/today", {
             tasksCompleted,
             tasksTotal,
             focusMinutes,

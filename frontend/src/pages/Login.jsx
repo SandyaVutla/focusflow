@@ -24,16 +24,23 @@ const Login = () => {
         setError("");
 
         try {
-            const response = await apiClient.post("/api/auth/login", formData);
+            const response = await apiClient.post("/auth/login", formData);
             const { token, name, userId } = response.data;
 
+            console.log("[AUTH-DIAG] Login successful. Persisting tokens...");
             localStorage.setItem("token", token);
             localStorage.setItem("userName", name);
             localStorage.setItem("userId", userId);
 
-            toast.success(`Welcome back, ${name}!`);
-            // Navigate to dashboard
-            navigate("/dashboard");
+            // Double check storage
+            if (localStorage.getItem("token") === token) {
+                console.log("[AUTH-DIAG] Token verified in storage. Navigating to dashboard.");
+                toast.success(`Welcome back, ${name}!`);
+                navigate("/dashboard", { replace: true });
+            } else {
+                console.error("[AUTH-DIAG] Token storage failed!");
+                toast.error("Authentication synchronization failed. Please try again.");
+            }
         } catch (err) {
             console.error(err.response?.data || err.message);
             const errorMsg = err.response?.data?.message || err.response?.data || "Login failed. Check your credentials.";
