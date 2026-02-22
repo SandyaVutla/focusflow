@@ -50,22 +50,26 @@ public class DailyStatsService {
     }
 
     public int calculateCurrentStreak(String userId) {
+        List<DailyStats> allStats = dailyStatsRepository.findByUserId(userId);
+        if (allStats.isEmpty())
+            return 0;
+
         int streak = 0;
         LocalDate date = LocalDate.now();
 
-        // If today's goal is not met yet, start checking from yesterday
-        // But if today's goal IS met, start from today
-        Optional<DailyStats> todayStats = dailyStatsRepository.findByUserIdAndDate(userId, date.toString());
+        // 1. Check today
+        final String todayStr = date.toString();
+        Optional<DailyStats> todayStats = allStats.stream().filter(s -> s.getDate().equals(todayStr)).findFirst();
+
         if (todayStats.isPresent() && todayStats.get().isGoalsMet()) {
             streak++;
-        } else {
-            // Check if today is still in progress (goal not met but not yet failed)
-            // For streak calculation, we check consecutive days ending yesterday
         }
 
+        // 2. Check preceding days
         date = date.minusDays(1);
         while (true) {
-            Optional<DailyStats> stats = dailyStatsRepository.findByUserIdAndDate(userId, date.toString());
+            final String checkDate = date.toString();
+            Optional<DailyStats> stats = allStats.stream().filter(s -> s.getDate().equals(checkDate)).findFirst();
             if (stats.isPresent() && stats.get().isGoalsMet()) {
                 streak++;
                 date = date.minusDays(1);

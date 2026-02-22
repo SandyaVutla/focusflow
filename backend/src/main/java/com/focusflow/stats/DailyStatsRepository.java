@@ -8,4 +8,6 @@ public interface DailyStatsRepository extends MongoRepository<DailyStats, String
     Optional<DailyStats> findByUserIdAndDate(String userId, String date);
 
     List<DailyStats> findByUserIdAndDateBetween(String userId, String startDate, String endDate);
+
+    List<DailyStats> findByUserId(String userId);
 }

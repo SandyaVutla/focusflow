@@ -3,6 +3,7 @@ package com.focusflow.stats;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
@@ -13,7 +14,9 @@ import java.util.Date;
 public class DailyStats {
     @Id
     private String id;
+    @Indexed
     private String userId;
+    @Indexed
     private String date; // YYYY-MM-DD
     private int tasksCompleted;
     private int tasksTotal;

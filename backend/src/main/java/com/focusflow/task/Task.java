@@ -3,6 +3,7 @@ package com.focusflow.task;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
@@ -13,12 +14,14 @@ import java.time.LocalDate;
 public class Task {
     @Id
     private String id;
+    @Indexed
     private String userId;
     private String title;
     private String category;
     private String time;
     private String status; // "ACTIVE", "COMPLETED"
     private String priority; // "high", "medium", "low"
+    @Indexed
     private LocalDate date;
     private LocalDate createdAt;
 
