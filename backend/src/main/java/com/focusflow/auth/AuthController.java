@@ -13,6 +13,9 @@ public class AuthController {
     private AuthService authService;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @PostMapping("/login")
@@ -25,15 +28,23 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@RequestBody SignupRequest signupRequest) {
+    public ResponseEntity<?> registerUser(@RequestBody SignupRequest signUpRequest) {
+
+        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            return ResponseEntity
+                    .badRequest()
+                    .body("Error: Email already in use");
+        }
 
         User user = new User();
-        user.setName(signupRequest.getName());
-        user.setEmail(signupRequest.getEmail());
-        user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
+        user.setName(signUpRequest.getName());
+        user.setEmail(signUpRequest.getEmail());
+        user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
 
-        System.out.println(">>> USER CREATED WITH ENCODED PASSWORD: " + user.getEmail());
+        userRepository.save(user);
 
-        return ResponseEntity.ok("USER OBJECT OK");
+        System.out.println("✅ USER SAVED: " + user.getEmail());
+
+        return ResponseEntity.ok("User registered successfully");
     }
 }
