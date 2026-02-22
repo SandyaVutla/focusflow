@@ -26,17 +26,33 @@ const Analytics = () => {
 
     const fetchData = async () => {
         setLoading(true);
+
+        const fetchStats = async () => {
+            try {
+                const endpoint = view === "weekly" ? "/stats/weekly" : "/stats/monthly";
+                const res = await apiClient.get(endpoint);
+                setStats(res.data);
+            } catch (err) {
+                console.error("Error fetching activity trend:", err);
+                // Non-blocking error for the trend chart
+            }
+        };
+
+        const fetchStreak = async () => {
+            try {
+                const res = await apiClient.get("/stats/streak");
+                setStreak(res.data.streak);
+            } catch (err) {
+                console.error("Error fetching streak:", err);
+                // Non-blocking error for the streak card
+            }
+        };
+
         try {
-            const endpoint = view === "weekly" ? "/stats/weekly" : "/stats/monthly";
-            const [statsRes, streakRes] = await Promise.all([
-                apiClient.get(endpoint),
-                apiClient.get("/stats/streak")
-            ]);
-            setStats(statsRes.data);
-            setStreak(streakRes.data.streak);
+            await Promise.allSettled([fetchStats(), fetchStreak()]);
         } catch (error) {
-            console.error("Error fetching analytics data:", error);
-            toast.error("Failed to load analytics reports");
+            console.error("Global analytics fetch error:", error);
+            toast.error("Some analytics data failed to load");
         } finally {
             setLoading(false);
         }

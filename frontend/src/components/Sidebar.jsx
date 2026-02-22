@@ -16,10 +16,8 @@ const Sidebar = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Clear auth data
-    localStorage.removeItem("token");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userId");
+    // Clear ALL user data (auth + productivity)
+    localStorage.clear();
 
     // Redirect to login
     navigate("/login");

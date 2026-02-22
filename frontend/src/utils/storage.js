@@ -15,8 +15,23 @@ export const KEYS = {
 };
 
 /* ─── generic helpers ─── */
-function read(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; } }
-function write(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch { } }
+function getActiveKey(key) {
+    const userId = localStorage.getItem("userId") || "guest";
+    return `${userId}_${key}`;
+}
+
+function read(key) {
+    try {
+        return JSON.parse(localStorage.getItem(getActiveKey(key)) || "null");
+    } catch {
+        return null;
+    }
+}
+function write(key, val) {
+    try {
+        localStorage.setItem(getActiveKey(key), JSON.stringify(val));
+    } catch { }
+}
 function broadcast(name) { window.dispatchEvent(new Event(name)); }
 
 /**
