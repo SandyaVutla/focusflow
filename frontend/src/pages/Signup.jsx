@@ -33,7 +33,7 @@ const Signup = () => {
 
         setLoading(true);
         try {
-            await apiClient.post("/api/auth/signup", {
+            await apiClient.post("/auth/signup", {
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
