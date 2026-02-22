@@ -1,14 +1,18 @@
 package com.focusflow.auth;
 
 import com.focusflow.model.User;
+import com.focusflow.model.UserDetailsImpl;
 import com.focusflow.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -24,34 +28,38 @@ public class AuthService {
     @Autowired
     private JwtUtils jwtUtils;
 
-    public String registerUser(SignupRequest request) {
+    public JwtResponse authenticateUser(LoginRequest loginRequest) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
-        if (userRepository.existsByEmail(request.getEmail())) {
-            return "Error: Email already exists";
-        }
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtils.generateJwtToken(loginRequest.getEmail());
 
-        User user = new User();
-        user.setName(request.getName());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-        userRepository.save(user);
-        return "User registered successfully";
+        return new JwtResponse(jwt,
+                userDetails.getId(),
+                userDetails.getName(),
+                userDetails.getEmail());
     }
 
-    public JwtResponse authenticateUser(LoginRequest request) {
+    public String registerUser(SignupRequest request) {
+        log.info("Attempting to register user: {}", request.getEmail());
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()));
+        if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Registration failed - Email already exists: {}", request.getEmail());
+            throw new RuntimeException("Email already exists");
+        }
 
-        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
+        User user = new User(
+                request.getName(),
+                request.getEmail(),
+                passwordEncoder.encode(request.getPassword()));
 
-        String jwt = jwtUtils.generateJwtToken(request.getEmail());
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Error: User not found."));
+        log.debug("Saving user to MongoDB...");
+        User savedUser = userRepository.save(user);
+        log.info("User registered successfully. Persistent ID: {}", savedUser.getId());
 
-        return new JwtResponse(jwt, user.getId(), user.getName(), user.getEmail());
+        return "User registered successfully";
     }
 }

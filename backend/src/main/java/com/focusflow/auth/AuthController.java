@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin
+@CrossOrigin(origins = "*", maxAge = 3600)
 public class AuthController {
 
     @Autowired
@@ -18,7 +18,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.authenticateUser(request));
+    public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
+        return ResponseEntity.ok(authService.authenticateUser(loginRequest));
     }
 }
