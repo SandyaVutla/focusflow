@@ -1,4 +1,4 @@
-package com.focusflow.auth;
+package com.focusflow.model;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

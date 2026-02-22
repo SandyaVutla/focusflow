@@ -1,5 +1,6 @@
-package com.focusflow.auth;
+package com.focusflow.repository;
 
+import com.focusflow.model.User;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import java.util.Optional;
 

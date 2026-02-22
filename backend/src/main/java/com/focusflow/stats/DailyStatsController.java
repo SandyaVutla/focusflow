@@ -1,6 +1,6 @@
 package com.focusflow.stats;
 
-import com.focusflow.auth.UserDetailsImpl;
+import com.focusflow.model.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

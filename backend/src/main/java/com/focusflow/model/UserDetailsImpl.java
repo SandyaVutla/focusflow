@@ -1,8 +1,6 @@
-package com.focusflow.auth;
+package com.focusflow.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -10,21 +8,22 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
 
-@AllArgsConstructor
 public class UserDetailsImpl implements UserDetails {
     private static final long serialVersionUID = 1L;
 
-    @Getter
     private String id;
-
-    @Getter
     private String name;
-
-    @Getter
     private String email;
 
     @JsonIgnore
     private String password;
+
+    public UserDetailsImpl(String id, String name, String email, String password) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.password = password;
+    }
 
     public static UserDetailsImpl build(User user) {
         return new UserDetailsImpl(
@@ -32,6 +31,18 @@ public class UserDetailsImpl implements UserDetails {
                 user.getName(),
                 user.getEmail(),
                 user.getPassword());
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
     @Override
