@@ -84,7 +84,7 @@ public class WebSecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://focusflow-36nr.onrender.com"));
+                "https://focusflow-frontend-ztk3.onrender.com"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
