@@ -1,8 +1,5 @@
 package com.focusflow.dashboard;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
 public class DashboardSummary {
     private long tasksCompletedToday;
     private long totalTasksToday;

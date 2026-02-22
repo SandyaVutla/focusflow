@@ -11,13 +11,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -59,9 +58,12 @@ public class WebSecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll());
-        // http.addFilterBefore(authTokenFilter,
-        // UsernamePasswordAuthenticationFilter.class);
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .anyRequest().authenticated());
+
+        http.authenticationProvider(authenticationProvider());
+
+        http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

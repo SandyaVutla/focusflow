@@ -15,10 +15,10 @@ import java.util.Date;
 public class JwtUtils {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
-    @Value("${focusflow.app.jwtSecret}")
+    @Value("${focusflow.app.jwtSecret:focusflowDefaultSecret123456}")
     private String jwtSecret;
 
-    @Value("${focusflow.app.jwtExpirationMs}")
+    @Value("${focusflow.app.jwtExpirationMs:86400000}")
     private int jwtExpirationMs;
 
     public String generateJwtToken(String username) {
