@@ -142,9 +142,40 @@ const Dashboard = () => {
   const totalToday = todayTasks.length + completedToday.length;
   const pendingCount = todayTasks.length;
   const completedCount = completedToday.length;
-
   const PRIO = { high: 0, medium: 1, low: 2 };
   const topPending = [...todayTasks].sort((a, b) => (PRIO[a.priority] ?? 3) - (PRIO[b.priority] ?? 3)).slice(0, 3);
+
+  const handleToggleTask = async (id) => {
+    try {
+      const res = await apiClient.patch(`/tasks/${id}/toggle`);
+      const updated = {
+        ...res.data,
+        done: res.data.status === "COMPLETED",
+        dueDate: res.data.date
+      };
+
+      setTaskData(prev => {
+        const nextTasks = prev.tasks.filter(t => t.id !== id);
+        const nextCompleted = prev.completed.filter(t => t.id !== id);
+
+        if (updated.done) {
+          return { tasks: nextTasks, completed: [...nextCompleted, updated] };
+        } else {
+          return { tasks: [...nextTasks, updated], completed: nextCompleted };
+        }
+      });
+
+      const current = loadTasks();
+      const nTasks = current.tasks.filter(t => t.id !== id);
+      const nComp = current.completed.filter(t => t.id !== id);
+      if (updated.done) saveTasks({ tasks: nTasks, completed: [...nComp, updated] });
+      else saveTasks({ tasks: [...nTasks, updated], completed: nComp });
+
+      toast.success(updated.done ? "Task completed!" : "Task reactivated");
+    } catch (err) {
+      toast.error("Failed to update task");
+    }
+  };
 
   /* ── HEALTH — live via "healthUpdated" event ── */
   const [healthData, setHealthData] = useState(() => loadHealth());
@@ -399,9 +430,16 @@ const Dashboard = () => {
             <div className="db-task-list">
               {topPending.map(task => (
                 <div key={task.id} className={`db-task-row db-task--${task.priority}`}>
-                  <span className={`db-task-dot db-task-dot--${task.priority}`} />
+                  <span
+                    className={`db-task-dot db-task-dot--${task.priority}`}
+                    onClick={() => handleToggleTask(task.id)}
+                    style={{ cursor: 'pointer' }}
+                    title="Complete task"
+                  />
                   <div className="db-task-info">
-                    <span className="db-task-title">{task.title}</span>
+                    <span className="db-task-title" onClick={() => handleToggleTask(task.id)} style={{ cursor: 'pointer' }}>
+                      {task.title}
+                    </span>
                     <span className="db-task-sub">{task.category} · {task.time}</span>
                   </div>
                 </div>

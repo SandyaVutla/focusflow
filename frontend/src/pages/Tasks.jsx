@@ -124,11 +124,6 @@ const Tasks = () => {
     fetchTasks();
   }, [fetchTasks]);
 
-  const persist = useCallback((t, c) => {
-    saveTasks({ tasks: t, completed: c });
-    checkDailyGoals();
-  }, []);
-
   /* ---- TOGGLE ---- */
   const handleToggle = useCallback(async (id) => {
     try {
@@ -140,22 +135,29 @@ const Tasks = () => {
       };
 
       if (updated.done) {
-        const nextTasks = tasks.filter(t => t.id !== id);
-        const nextCompleted = [...completed, updated];
-        setTasks(nextTasks);
-        setCompleted(nextCompleted);
-        persist(nextTasks, nextCompleted);
+        setTasks(prev => prev.filter(t => t.id !== id));
+        setCompleted(prev => {
+          const next = [...prev.filter(t => t.id !== id), updated];
+          return next;
+        });
       } else {
-        const nextCompleted = completed.filter(t => t.id !== id);
-        const nextTasks = [...tasks, updated].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
-        setTasks(nextTasks);
-        setCompleted(nextCompleted);
-        persist(nextTasks, nextCompleted);
+        setCompleted(prev => prev.filter(t => t.id !== id));
+        setTasks(prev => {
+          const next = [...prev.filter(t => t.id !== id), updated]
+            .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+          return next;
+        });
       }
     } catch (err) {
       toast.error("Failed to update task");
     }
-  }, [tasks, completed, persist]);
+  }, []);
+
+  // Refined persist mapping to use state snapshots safely
+  useEffect(() => {
+    saveTasks({ tasks, completed });
+    checkDailyGoals();
+  }, [tasks, completed]);
 
   /* ---- DELETE + UNDO ---- */
   const undoRef = useRef(null);
@@ -164,16 +166,13 @@ const Tasks = () => {
   const handleDelete = useCallback(async (id) => {
     try {
       await apiClient.delete(`/tasks/${id}`);
-      const nextTasks = tasks.filter(t => t.id !== id);
-      const nextCompleted = completed.filter(t => t.id !== id);
-      setTasks(nextTasks);
-      setCompleted(nextCompleted);
-      persist(nextTasks, nextCompleted);
+      setTasks(prev => prev.filter(t => t.id !== id));
+      setCompleted(prev => prev.filter(t => t.id !== id));
       toast.success("Task deleted");
     } catch (err) {
       toast.error("Failed to delete task");
     }
-  }, [tasks, completed, persist]);
+  }, []);
 
   const handleUndoDelete = useCallback(() => {
     if (!undoToast) return;
@@ -192,9 +191,8 @@ const Tasks = () => {
 
     setTasks(nextTasks);
     setCompleted(nextCompleted);
-    persist(nextTasks, nextCompleted);
     setUndoToast(null);
-  }, [undoToast, persist]);
+  }, [undoToast]);
 
   /* ---- TIMER ---- */
   const handleTimer = useCallback(() => navigate("/focus"), [navigate]);
@@ -221,12 +219,9 @@ const Tasks = () => {
       return;
     }
 
-    const nextTasks = tasks.map(t =>
+    setTasks(prevTasks => prevTasks.map(t =>
       t.id === draggedTaskId ? { ...t, dueDate: date } : t
-    ).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
-
-    setTasks(nextTasks);
-    persist(nextTasks, completed);
+    ).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b)));
     setDraggedTaskId(null);
 
     toast.success(`Task rescheduled to ${formatSectionLabel(date)}`);
@@ -258,15 +253,13 @@ const Tasks = () => {
         dueDate: res.data.date
       };
 
-      const nextTasks = [...tasks, newTask].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
-      setTasks(nextTasks);
-      persist(nextTasks, completed);
+      setTasks(prev => [...prev, newTask].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b)));
       closeModal();
       toast.success("Task added");
     } catch (err) {
       toast.error("Failed to add task");
     }
-  }, [form, tasks, completed, persist]);
+  }, [form]);
 
   useEffect(() => {
     if (!isModalOpen) return;
@@ -309,11 +302,6 @@ const Tasks = () => {
   const handleSaveEdit = useCallback(async () => {
     if (!editForm.title.trim() || !editState) return;
     try {
-      // Backend doesn't have a generic PUT/PATCH edit yet, let's assume it supports full update or I should add it.
-      // Wait, TaskController only has toggle and delete. I need to add an update endpoint.
-      // For now, I'll delete and re-create if no PUT exists, OR I'll add the PUT endpoint.
-      // Adding a PUT endpoint is cleaner.
-
       const res = await apiClient.put(`/tasks/${editState.task.id}`, {
         title: editForm.title.trim(),
         category: editForm.category.trim() || "General",
@@ -329,25 +317,28 @@ const Tasks = () => {
         dueDate: res.data.date
       };
 
-      const nextTasks = tasks.filter(t => t.id !== updatedTask.id);
-      const nextCompleted = completed.filter(t => t.id !== updatedTask.id);
+      setTasks(prev => {
+        const next = prev.filter(t => t.id !== updatedTask.id);
+        if (!updatedTask.done) {
+          return [...next, updatedTask].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+        }
+        return next;
+      });
 
-      if (updatedTask.done) {
-        setCompleted([...nextCompleted, updatedTask]);
-        setTasks(nextTasks);
-        persist(nextTasks, [...nextCompleted, updatedTask]);
-      } else {
-        const sorted = [...nextTasks, updatedTask].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
-        setTasks(sorted);
-        setCompleted(nextCompleted);
-        persist(sorted, nextCompleted);
-      }
+      setCompleted(prev => {
+        const next = prev.filter(t => t.id !== updatedTask.id);
+        if (updatedTask.done) {
+          return [...next, updatedTask];
+        }
+        return next;
+      });
+
       closeEditModal();
       toast.success("Task updated");
     } catch (err) {
       toast.error("Failed to update task");
     }
-  }, [editForm, editState, tasks, completed, persist]);
+  }, [editForm, editState]);
 
   useEffect(() => {
     if (!editState) return;
