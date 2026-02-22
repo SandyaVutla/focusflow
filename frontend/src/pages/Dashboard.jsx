@@ -49,12 +49,24 @@ const Dashboard = () => {
     }
 
     const fetchInitialData = async () => {
-      console.log("[AUTH-DIAG] Dashboard: Fetching stats and weekly data...");
+      console.log("[AUTH-DIAG] Dashboard: Fetching stats, tasks and weekly data...");
       try {
-        const [streakRes, weeklyRes] = await Promise.all([
+        const [streakRes, weeklyRes, tasksRes] = await Promise.all([
           apiClient.get("/stats/streak"),
-          apiClient.get("/stats/weekly")
+          apiClient.get("/stats/weekly"),
+          apiClient.get("/tasks")
         ]);
+
+        // Sync Tasks
+        const allTasks = tasksRes.data.map(t => ({
+          ...t,
+          done: t.status === "COMPLETED",
+          dueDate: t.date
+        }));
+        const active = allTasks.filter(t => !t.done);
+        const done = allTasks.filter(t => t.done);
+        setTaskData({ tasks: active, completed: done });
+        saveTasks({ tasks: active, completed: done });
 
         // Sync Streak
         const bStreak = streakRes.data.streak;

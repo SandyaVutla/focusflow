@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus, Clock, Edit2, Trash2, Timer } from "lucide-react";
+import apiClient from "../api/axios";
+import { Plus, Clock, Edit2, Trash2, Timer, Loader2 } from "lucide-react";
 import { loadTasks, saveTasks, checkDailyGoals } from "../utils/storage";
+import { toast } from "react-hot-toast";
 
 /* -------------------- DATE HELPERS -------------------- */
 const getToday = () => new Date().toISOString().split("T")[0];
@@ -21,34 +21,6 @@ function formatSectionLabel(dateStr) {
   return d
     .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
     .toUpperCase();
-}
-
-/* -------------------- SEED DATA -------------------- */
-const T = getToday();
-const INITIAL_TASKS = [
-  { id: 1, title: "Write project proposal", category: "Work · Documentation", time: "45 min", priority: "high", upNext: true, dueDate: T },
-  { id: 3, title: "Prepare sprint retrospective", category: "Team · Meeting prep", time: "30 min", priority: "medium", dueDate: T },
-  { id: 4, title: "Reply to client emails", category: "Communication", time: "15 min", priority: "low", dueDate: T },
-  { id: 5, title: "Design landing page mockup", category: "Design · Creative", time: "60 min", priority: "high", dueDate: addDays(T, 1) },
-  { id: 6, title: "Write unit tests for auth module", category: "Development · Testing", time: "40 min", priority: "medium", dueDate: addDays(T, 1) },
-  { id: 7, title: "Update dependency packages", category: "Maintenance", time: "20 min", priority: "low", dueDate: addDays(T, 3) },
-];
-const INITIAL_COMPLETED = [
-  { id: 2, title: "Review pull requests", category: "Development", time: "25 min", priority: "medium", done: true, dueDate: T },
-];
-
-/* purge completed tasks older than 24 hours */
-function purgeExpiredCompleted(completedArr) {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  return completedArr.filter((t) => !t.completedAt || t.completedAt > cutoff);
-}
-
-function getInitialState() {
-  const saved = loadTasks();
-  return {
-    tasks: saved.tasks || [],
-    completed: purgeExpiredCompleted(saved.completed || [])
-  };
 }
 
 /* -------------------- SORT HELPERS -------------------- */
@@ -111,12 +83,44 @@ const TaskRow = ({ task, onToggle, onDelete, onEdit, onTimer, onDragStart }) => 
 /* -------------------- PAGE -------------------- */
 const Tasks = () => {
   const navigate = useNavigate();
-  const init = getInitialState();
-
-  const [tasks, setTasks] = useState(init.tasks);
-  const [completed, setCompleted] = useState(init.completed);
+  const [tasks, setTasks] = useState([]);
+  const [completed, setCompleted] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get("/tasks");
+      const all = res.data.map(t => ({
+        ...t,
+        done: t.status === "COMPLETED",
+        dueDate: t.date // Match frontend expectation
+      }));
+
+      const active = all.filter(t => !t.done).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+      const done = all.filter(t => t.done);
+
+      setTasks(active);
+      setCompleted(done);
+
+      // Update local cache
+      saveTasks({ tasks: active, completed: done });
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+      // Fallback to local storage if API fails
+      const local = loadTasks();
+      setTasks(local.tasks || []);
+      setCompleted(local.completed || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
   const persist = useCallback((t, c) => {
     saveTasks({ tasks: t, completed: c });
@@ -124,24 +128,30 @@ const Tasks = () => {
   }, []);
 
   /* ---- TOGGLE ---- */
-  const handleToggle = useCallback((id) => {
-    const task = tasks.find((t) => t.id === id);
-    if (task) {
-      const nextTasks = tasks.filter((t) => t.id !== id);
-      const nextCompleted = [...completed, { ...task, done: true, upNext: false, completedAt: Date.now() }];
-      setTasks(nextTasks);
-      setCompleted(nextCompleted);
-      persist(nextTasks, nextCompleted);
-      return;
-    }
-    const doneTask = completed.find((t) => t.id === id);
-    if (doneTask) {
-      const nextCompleted = completed.filter((t) => t.id !== id);
-      const nextTasks = [...tasks, { ...doneTask, done: false }]
-        .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
-      setCompleted(nextCompleted);
-      setTasks(nextTasks);
-      persist(nextTasks, nextCompleted);
+  const handleToggle = useCallback(async (id) => {
+    try {
+      const res = await apiClient.patch(`/tasks/${id}/toggle`);
+      const updated = {
+        ...res.data,
+        done: res.data.status === "COMPLETED",
+        dueDate: res.data.date
+      };
+
+      if (updated.done) {
+        const nextTasks = tasks.filter(t => t.id !== id);
+        const nextCompleted = [...completed, updated];
+        setTasks(nextTasks);
+        setCompleted(nextCompleted);
+        persist(nextTasks, nextCompleted);
+      } else {
+        const nextCompleted = completed.filter(t => t.id !== id);
+        const nextTasks = [...tasks, updated].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+        setTasks(nextTasks);
+        setCompleted(nextCompleted);
+        persist(nextTasks, nextCompleted);
+      }
+    } catch (err) {
+      toast.error("Failed to update task");
     }
   }, [tasks, completed, persist]);
 
@@ -149,22 +159,18 @@ const Tasks = () => {
   const undoRef = useRef(null);
   const [undoToast, setUndoToast] = useState(null);
 
-  const handleDelete = useCallback((id) => {
-    const inTasks = tasks.find((t) => t.id === id);
-    const inCompleted = completed.find((t) => t.id === id);
-    const source = inTasks ? "tasks" : inCompleted ? "completed" : null;
-    if (!source) return;
-
-    const deletedTask = inTasks || inCompleted;
-    const nextTasks = tasks.filter((t) => t.id !== id);
-    const nextCompleted = completed.filter((t) => t.id !== id);
-    setTasks(nextTasks);
-    setCompleted(nextCompleted);
-    persist(nextTasks, nextCompleted);
-
-    if (undoRef.current) clearTimeout(undoRef.current);
-    setUndoToast({ task: deletedTask, source, snapshot: { tasks: nextTasks, completed: nextCompleted } });
-    undoRef.current = setTimeout(() => setUndoToast(null), 15000);
+  const handleDelete = useCallback(async (id) => {
+    try {
+      await apiClient.delete(`/tasks/${id}`);
+      const nextTasks = tasks.filter(t => t.id !== id);
+      const nextCompleted = completed.filter(t => t.id !== id);
+      setTasks(nextTasks);
+      setCompleted(nextCompleted);
+      persist(nextTasks, nextCompleted);
+      toast.success("Task deleted");
+    } catch (err) {
+      toast.error("Failed to delete task");
+    }
   }, [tasks, completed, persist]);
 
   const handleUndoDelete = useCallback(() => {
@@ -233,21 +239,31 @@ const Tasks = () => {
   const openModal = () => { setForm({ ...EMPTY_FORM, dueDate: getToday() }); setIsModalOpen(true); };
   const closeModal = () => setIsModalOpen(false);
 
-  const handleAddTask = useCallback(() => {
+  const handleAddTask = useCallback(async () => {
     if (!form.title.trim()) return;
-    const newTask = {
-      id: Date.now(),
-      title: form.title.trim(),
-      category: form.category.trim() || "General",
-      time: `${form.time} min`,
-      priority: form.priority,
-      dueDate: form.dueDate || getToday(),
-    };
-    const nextTasks = [...tasks, newTask]
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
-    setTasks(nextTasks);
-    persist(nextTasks, completed);
-    closeModal();
+    try {
+      const res = await apiClient.post("/tasks", {
+        title: form.title.trim(),
+        category: form.category.trim() || "General",
+        time: `${form.time} min`,
+        priority: form.priority,
+        date: form.dueDate || getToday()
+      });
+
+      const newTask = {
+        ...res.data,
+        done: res.data.status === "COMPLETED",
+        dueDate: res.data.date
+      };
+
+      const nextTasks = [...tasks, newTask].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+      setTasks(nextTasks);
+      persist(nextTasks, completed);
+      closeModal();
+      toast.success("Task added");
+    } catch (err) {
+      toast.error("Failed to add task");
+    }
   }, [form, tasks, completed, persist]);
 
   useEffect(() => {
@@ -288,31 +304,47 @@ const Tasks = () => {
 
   const closeEditModal = () => setEditState(null);
 
-  const handleSaveEdit = useCallback(() => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editForm.title.trim() || !editState) return;
-    const updatedTask = {
-      ...editState.task,
-      title: editForm.title.trim(),
-      category: editForm.category.trim() || "General",
-      time: `${editForm.time} min`,
-      priority: editForm.priority,
-      dueDate: editForm.dueDate || getToday(),
-    };
+    try {
+      // Backend doesn't have a generic PUT/PATCH edit yet, let's assume it supports full update or I should add it.
+      // Wait, TaskController only has toggle and delete. I need to add an update endpoint.
+      // For now, I'll delete and re-create if no PUT exists, OR I'll add the PUT endpoint.
+      // Adding a PUT endpoint is cleaner.
 
-    let nextTasks = tasks.filter((t) => t.id !== updatedTask.id);
-    let nextCompleted = completed.filter((t) => t.id !== updatedTask.id);
+      const res = await apiClient.put(`/tasks/${editState.task.id}`, {
+        title: editForm.title.trim(),
+        category: editForm.category.trim() || "General",
+        time: `${editForm.time} min`,
+        priority: editForm.priority,
+        date: editForm.dueDate || getToday(),
+        status: editState.source === "completed" ? "COMPLETED" : "ACTIVE"
+      });
 
-    if (editState.source === "completed") {
-      nextCompleted = [...nextCompleted, { ...updatedTask, done: true }];
-    } else {
-      nextTasks = [...nextTasks, { ...updatedTask, done: false }]
-        .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+      const updatedTask = {
+        ...res.data,
+        done: res.data.status === "COMPLETED",
+        dueDate: res.data.date
+      };
+
+      const nextTasks = tasks.filter(t => t.id !== updatedTask.id);
+      const nextCompleted = completed.filter(t => t.id !== updatedTask.id);
+
+      if (updatedTask.done) {
+        setCompleted([...nextCompleted, updatedTask]);
+        setTasks(nextTasks);
+        persist(nextTasks, [...nextCompleted, updatedTask]);
+      } else {
+        const sorted = [...nextTasks, updatedTask].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || byPriority(a, b));
+        setTasks(sorted);
+        setCompleted(nextCompleted);
+        persist(sorted, nextCompleted);
+      }
+      closeEditModal();
+      toast.success("Task updated");
+    } catch (err) {
+      toast.error("Failed to update task");
     }
-
-    setTasks(nextTasks);
-    setCompleted(nextCompleted);
-    persist(nextTasks, nextCompleted);
-    closeEditModal();
   }, [editForm, editState, tasks, completed, persist]);
 
   useEffect(() => {
@@ -356,6 +388,17 @@ const Tasks = () => {
     onTimer: handleTimer,
     onDragStart: handleDragStart
   };
+
+  if (loading) {
+    return (
+      <div className="tasks-page d-flex align-items-center justify-content-center" style={{ minHeight: '80vh' }}>
+        <div className="text-center">
+          <Loader2 className="spinner-border text-teal mb-3 animate-spin" size={40} />
+          <p className="text-muted fw-medium">Loading your tasks...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in tasks-page">
