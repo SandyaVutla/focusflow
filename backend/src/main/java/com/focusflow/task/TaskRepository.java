@@ -6,4 +6,6 @@ import java.time.LocalDate;
 
 public interface TaskRepository extends MongoRepository<Task, String> {
     List<Task> findByUserIdAndDate(String userId, LocalDate date);
+
+    List<Task> findByUserId(String userId);
 }

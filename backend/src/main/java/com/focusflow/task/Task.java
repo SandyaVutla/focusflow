@@ -15,73 +15,21 @@ public class Task {
     private String id;
     private String userId;
     private String title;
+    private String category;
+    private String time;
     private String status; // "ACTIVE", "COMPLETED"
-    private String priority; // "High", "Medium", "Low"
+    private String priority; // "high", "medium", "low"
     private LocalDate date;
     private LocalDate createdAt;
 
-    public Task(String userId, String title, String priority, LocalDate date) {
+    public Task(String userId, String title, String category, String time, String priority, LocalDate date) {
         this.userId = userId;
         this.title = title;
+        this.category = category;
+        this.time = time;
         this.priority = priority;
         this.date = date != null ? date : LocalDate.now();
         this.status = "ACTIVE";
         this.createdAt = LocalDate.now();
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getPriority() {
-        return priority;
-    }
-
-    public void setPriority(String priority) {
-        this.priority = priority;
-    }
-
-    public LocalDate getDate() {
-        return date;
-    }
-
-    public void setDate(LocalDate date) {
-        this.date = date;
-    }
-
-    public LocalDate getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDate createdAt) {
-        this.createdAt = createdAt;
     }
 }

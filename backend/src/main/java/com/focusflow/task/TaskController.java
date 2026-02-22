@@ -1,9 +1,10 @@
 package com.focusflow.task;
 
+import com.focusflow.model.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -16,16 +17,22 @@ public class TaskController {
     private TaskService taskService;
 
     @GetMapping
-    public List<Task> getTasks(
+    public List<Task> getTasks(@AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return taskService.getTasks(userId, date);
+        return taskService.getTasks(userDetails.getId(), date);
     }
 
     @PostMapping
-    public Task createTask(@RequestBody Task task) {
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return taskService.createTask(userId, task);
+    public Task createTask(@AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody Task task) {
+        return taskService.createTask(userDetails.getId(), task);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Task> update(@PathVariable String id, @RequestBody Task task) {
+        Task updated = taskService.updateTask(id, task);
+        if (updated == null)
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(updated);
     }
 
     @PatchMapping("/{id}/toggle")
