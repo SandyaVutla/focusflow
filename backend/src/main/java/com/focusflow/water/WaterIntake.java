@@ -3,6 +3,7 @@ package com.focusflow.water;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
@@ -13,8 +14,10 @@ import java.time.LocalDate;
 public class WaterIntake {
     @Id
     private String id;
+    @Indexed
     private String userId;
     private int amount; // Number of glasses or volume
+    @Indexed
     private LocalDate date;
 
     public WaterIntake(String userId, int amount, LocalDate date) {

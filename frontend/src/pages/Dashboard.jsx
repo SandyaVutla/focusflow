@@ -49,15 +49,17 @@ const Dashboard = () => {
     }
 
     const fetchInitialData = async () => {
-      console.log("[AUTH-DIAG] Dashboard: Fetching stats, tasks and weekly data...");
+      console.log("[AUTH-DIAG] Dashboard: Fetching consolidated summary and weekly data...");
       try {
-        const [streakRes, weeklyRes, tasksRes] = await Promise.all([
-          apiClient.get("/stats/streak"),
-          apiClient.get("/stats/weekly"),
-          apiClient.get("/tasks")
+        const [summaryRes, weeklyRes, tasksRes] = await Promise.all([
+          apiClient.get("/api/dashboard/summary"),
+          apiClient.get("/api/stats/weekly"),
+          apiClient.get("/api/tasks")
         ]);
 
-        // Sync Tasks
+        const summary = summaryRes.data;
+
+        // Sync Tasks from full list (needed for the task card)
         const allTasks = tasksRes.data.map(t => ({
           ...t,
           done: t.status === "COMPLETED",
@@ -68,28 +70,25 @@ const Dashboard = () => {
         setTaskData({ tasks: active, completed: done });
         saveTasks({ tasks: active, completed: done });
 
-        // Sync Streak
-        const bStreak = streakRes.data.streak;
-        const localMot = loadMotivation();
-        if (bStreak > localMot.streak) {
-          saveMotivation({ ...localMot, streak: bStreak });
-        }
+        // Sync Motivation/Streak from summary
+        setMotData({ streak: summary.currentStreak, best: summary.bestStreak });
+        saveMotivation({
+          streak: summary.currentStreak,
+          best: summary.bestStreak
+        });
 
-        // Sync Today's Stats
-        const weekly = weeklyRes.data;
-        const bToday = weekly[weekly.length - 1];
-        if (bToday && bToday.date === today) {
-          const localHealth = loadHealth();
-          if (bToday.waterGlasses > localHealth.glasses) {
-            saveHealth({ ...localHealth, glasses: bToday.waterGlasses });
-          }
-          const localTimer = loadTimer();
-          if (bToday.focusMinutes > (localTimer.focusMinutesToday || 0)) {
-            saveTimer({ ...localTimer, focusMinutesToday: bToday.focusMinutes, focusDate: today });
-          }
-        }
+        // Sync Today's Stats from summary
+        setHealthData({ glasses: summary.waterIntakeToday });
+        saveHealth({ glasses: summary.waterIntakeToday });
+
+        setFocusMinutesToday(summary.focusMinutesToday);
+        saveTimer({
+          focusMinutesToday: summary.focusMinutesToday,
+          focusDate: today
+        });
 
         // Map weekly bars
+        const weekly = weeklyRes.data;
         const bars = [];
         for (let i = 6; i >= 0; i--) {
           const date = new Date(); date.setDate(date.getDate() - i);

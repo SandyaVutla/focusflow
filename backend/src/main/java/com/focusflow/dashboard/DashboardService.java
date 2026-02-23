@@ -38,8 +38,11 @@ public class DashboardService {
         // 3. Water metrics
         int waterIntake = waterService.getTodayCount(userId);
 
-        // 4. Streak metrics
-        UserStreak streak = streakService.getAndUpdateStreak(userId);
+        // 4. Daily Goal Check for Streak (Avoid redundant repository calls)
+        boolean goalMet = completedToday >= 4 && focusMins >= 60 && waterIntake >= 5;
+
+        // 5. Streak metrics (Passing pre-calculated goalMet)
+        UserStreak streak = streakService.getAndUpdateStreak(userId, goalMet);
 
         return new DashboardSummary(
                 completedToday,

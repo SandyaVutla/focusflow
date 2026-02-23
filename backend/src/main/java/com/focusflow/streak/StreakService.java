@@ -24,6 +24,12 @@ public class StreakService {
     private WaterIntakeRepository waterRepository;
 
     public UserStreak getAndUpdateStreak(String userId) {
+        LocalDate today = LocalDate.now();
+        boolean goalMet = isDailyGoalMet(userId, today);
+        return getAndUpdateStreak(userId, goalMet);
+    }
+
+    public UserStreak getAndUpdateStreak(String userId, boolean goalMet) {
         UserStreak streak = streakRepository.findByUserId(userId)
                 .orElse(new UserStreak(userId));
 
@@ -37,7 +43,7 @@ public class StreakService {
 
         // 2. Daily Goal Check
         if (streak.getLastSuccessfulDate().isBefore(today)) {
-            if (isDailyGoalMet(userId, today)) {
+            if (goalMet) {
                 streak.setCurrentStreak(streak.getCurrentStreak() + 1);
                 streak.setLastSuccessfulDate(today);
                 if (streak.getCurrentStreak() > streak.getBestStreak()) {
